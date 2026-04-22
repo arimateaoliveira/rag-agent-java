@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: rag-poc
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ragpoc
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080
+
+# Configuracao AWS (substitua com suas credenciais)
+aws:
+  region: us-east-1
+  bedrock:
+    model-id: amazon.nova-lite-v1:0
+    # embedding-model-id será configurado depois
+
+# Vector Store (PostgreSQL + pgvector)
+pgvector:
+  host: localhost
+  port: 5432
+  database: rag_db
+  user: postgres
+  password: postgres
+
+# Logging
+logging:
+  level:
+    dev.langchain4j: DEBUG
+    com.exemplo: DEBUG
