@@ -17,12 +17,16 @@ spring:
 server:
   port: 8080
 
-# Configuracao AWS (substitua com suas credenciais)
+# Configuracao AWS
 aws:
-  region: us-east-1
+  region: us-east-1  # Mantém o Bedrock funcionando
+  s3:
+    bucket: rag-poc-documentos-936672259676-us-east-2-an
+    region: us-east-2  # Região específica para S3
   bedrock:
     model-id: amazon.nova-lite-v1:0
-    # embedding-model-id será configurado depois
+    embedding-model-id: cohere.embed-english-v3
+
 
 # Vector Store (PostgreSQL + pgvector)
 pgvector:

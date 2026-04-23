@@ -1,6 +1,6 @@
-# 🧠 RAG POC: Retrieval-Augmented Generation com AWS Bedrock
+# 🧠 RAG POC: Retrieval-Augmented Generation com AWS Bedrock e S3
 
-> **Prova de conceito** de um sistema de RAG (Recuperação + Geração Aumentada) usando Java, Spring Boot e AWS Bedrock.
+> **Prova de conceito** de um sistema RAG (Recuperação + Geração Aumentada) usando Java, Spring Boot, AWS Bedrock e S3.
 
 ---
 
@@ -8,9 +8,9 @@
 
 Esta é uma **prova de conceito** de um sistema RAG que:
 
-- Faz **upload de documentos PDF** (ex: currículo)
+- Faz **upload de documentos PDF** para o **AWS S3**
 - **Indexa** o conteúdo em um banco vetorial (PostgreSQL + pgvector)
-- **Recupera** trechos relevantes usando busca por similaridade semântica
+- **Recupera** trechos relevantes usando busca por similaridade semântica (embeddings)
 - **Gera respostas** contextualizadas usando Amazon Nova Lite
 
 A aplicação **não alucina**: se a informação não estiver no documento, responde que não sabe.
@@ -20,19 +20,35 @@ A aplicação **não alucina**: se a informação não estiver no documento, res
 ## 🏗️ Arquitetura
 
 ```
-CLIENTE (Postman)
-       │
-       ▼
-Spring Boot Application
-  ├── Upload PDF → Indexar (Embeddings) → Buscar + Gerar (RAG)
-       │                   │                         │
-       ▼                   ▼                         ▼
-PostgreSQL + pgvector   AWS Bedrock (Cohere)    AWS Bedrock (Nova Lite)
-     (Vetores)             (Embeddings)              (Chat/LLM)
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENTE (Postman/Web)                   │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Spring Boot Application                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │   Upload    │ →  │  Salvar no  │ →  │  Baixar do S3 e     │  │
+│  │   (PDF)     │    │  S3 (bucket)│    │  indexar (embedding)│  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+         │                   │                         │
+         ▼                   ▼                         ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐
+│   PostgreSQL    │  │   AWS S3        │  │    AWS Bedrock      │
+│   + pgvector    │  │   (Documentos)  │  │    (Nova Lite +     │
+│   (Vetores)     │  │                 │  │     Cohere)         │
+└─────────────────┘  └─────────────────┘  └─────────────────────┘
 ```
 
-**Fluxo da pergunta:**
-1. Usuário pergunta → 2. Gera embedding → 3. Busca similar no banco → 4. Monta contexto → 5. LLM responde baseada no documento
+### Fluxo da pergunta (RAG)
+
+1. Usuário pergunta algo (`POST /api/chat`)
+2. A pergunta é convertida em **embedding** (Cohere)
+3. Busca no pgvector os **trechos mais similares**
+4. Se encontrar, monta um prompt com contexto
+5. LLM (Nova Lite) gera resposta **baseada apenas no documento**
+6. Se não encontrar, responde: *"Não encontrei essa informação no currículo"*
 
 ---
 
@@ -40,14 +56,15 @@ PostgreSQL + pgvector   AWS Bedrock (Cohere)    AWS Bedrock (Nova Lite)
 
 | Camada | Tecnologia |
 |--------|------------|
-| Linguagem | Java 17 |
-| Framework | Spring Boot 3.2.4 |
-| LLM (Chat) | Amazon Nova Lite (Bedrock) |
-| Embeddings | Cohere Embed English v3 (Bedrock) |
-| Banco Vetorial | PostgreSQL 16 + pgvector |
-| Parsing PDF | Apache PDFBox |
-| Build | Maven |
-| Container | Docker |
+| **Linguagem** | Java 17 |
+| **Framework** | Spring Boot 3.2.4 |
+| **LLM (Chat)** | Amazon Nova Lite (via Bedrock) |
+| **Embeddings** | Cohere Embed English v3 (via Bedrock) |
+| **Armazenamento** | AWS S3 (documentos originais) |
+| **Banco Vetorial** | PostgreSQL 16 + pgvector |
+| **Parsing de PDF** | Apache PDFBox |
+| **Build** | Maven |
+| **Container** | Docker (PostgreSQL) |
 
 ---
 
@@ -56,6 +73,29 @@ PostgreSQL + pgvector   AWS Bedrock (Cohere)    AWS Bedrock (Nova Lite)
 - Java 17+
 - Docker
 - Conta AWS com acesso ao Bedrock (Nova Lite + Cohere habilitados)
+- Bucket S3 criado
+
+---
+
+## 🔐 Configuração de Credenciais
+
+### Localmente (desenvolvimento)
+
+Configure as variáveis de ambiente no IntelliJ:
+
+```
+AWS_ACCESS_KEY_ID=sua_chave
+AWS_SECRET_ACCESS_KEY=sua_chave_secreta
+AWS_REGION=us-east-1
+DB_USERNAME=postgres
+DB_PASSWORD=senha123
+```
+
+### Na AWS (produção)
+
+A aplicação utiliza **IAM Roles** quando rodando na AWS. Crie uma IAM Role com as políticas:
+- `AmazonBedrockFullAccess`
+- `AmazonS3FullAccess`
 
 ---
 
@@ -77,12 +117,22 @@ docker run --name postgres-rag \
 docker exec -it postgres-rag psql -U postgres -d ragpoc -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
-### 3. Configurar variáveis de ambiente
+### 3. Configurar o `application.yml`
 
-No IntelliJ: `Run` → `Edit Configurations` → `Environment variables`:
+```yaml
+aws:
+  region: us-east-1
+  s3:
+    bucket: seu-bucket-name
+  bedrock:
+    model-id: amazon.nova-lite-v1:0
+    embedding-model-id: cohere.embed-english-v3
 
-```
-AWS_ACCESS_KEY_ID=sua_chave;AWS_SECRET_ACCESS_KEY=sua_chave_secreta;AWS_REGION=us-east-1;DB_USERNAME=postgres;DB_PASSWORD=senha123
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ragpoc
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
 ```
 
 ### 4. Rodar a aplicação
@@ -95,7 +145,7 @@ AWS_ACCESS_KEY_ID=sua_chave;AWS_SECRET_ACCESS_KEY=sua_chave_secreta;AWS_REGION=u
 
 ## 🔌 Endpoints
 
-### 📄 Upload de documento
+### 📄 Upload de documento (com S3)
 
 ```http
 POST /api/documentos/upload
@@ -104,7 +154,12 @@ Content-Type: multipart/form-data
 file: @caminho/do/seu/curriculo.pdf
 ```
 
-**Resposta:** `"✅ Documento indexado com sucesso: curriculo.pdf"`
+**Resposta:**
+```json
+"✅ Documento indexado com sucesso!
+   Arquivo: curriculo.pdf
+   S3 Key: uploads/1234567890_curriculo.pdf"
+```
 
 ### 💬 Perguntar (RAG)
 
@@ -113,14 +168,14 @@ POST /api/chat
 Content-Type: application/json
 
 {
-    "pergunta": "Qual minha experiência com AWS?"
+    "pergunta": "Liste todas as minhas experiências com Cloud"
 }
 ```
 
 **Resposta (vem do currículo):**
 ```json
 {
-    "resposta": "Experiência com AWS Lambda, EC2, S3, DynamoDB, Kinesis, SQS e SNS..."
+    "resposta": "Experiências com Cloud:\n\n1. **AWS** - Lambda, EC2, S3, DynamoDB, Kinesis, SQS, SNS\n2. **Azure** - Evolução de sistemas para microserviços\n3. **Multi-Cloud** - Plataforma com AWS, Azure e GCP"
 }
 ```
 
@@ -136,27 +191,19 @@ GET /api/chat/health
 
 ## 🎬 Demonstração
 
-**Indexando um currículo:**
+**Indexando um currículo (S3 + PostgreSQL):**
 ```
 POST /api/documentos/upload → 200 OK
-"✅ Documento indexado com sucesso: profile-jose-arimatea-vieira-pt.pdf"
+"✅ Documento indexado com sucesso! S3 Key: uploads/1734889123456_curriculo.pdf"
 ```
 
 **Perguntando sobre o documento:**
-```json
-{
-    "pergunta": "Qual minha experiência com AWS?"
-}
-```
-**Resposta:** `"Experiência com AWS (Lambda, EC2, S3, DynamoDB, Kinesis, SQS, SNS)..."`
+- Pergunta: `"Qual minha experiência com AWS?"`
+- Resposta: `"AWS (Lambda, EC2, S3, DynamoDB, Kinesis, SQS, SNS)"`
 
 **Evitando alucinação (pergunta fora do contexto):**
-```json
-{
-    "pergunta": "Me dê uma receita de bolo de laranja"
-}
-```
-**Resposta:** `"Não encontrei essa informação no currículo."`
+- Pergunta: `"Me dê uma receita de bolo de laranja"`
+- Resposta: `"Não encontrei essa informação no currículo."`
 
 ---
 
@@ -164,11 +211,18 @@ POST /api/documentos/upload → 200 OK
 
 ```
 src/main/java/com/home/ragpoc/
-├── config/                     # Configurações (Bedrock, VectorStore)
-├── controller/                 # Endpoints REST (Chat, Upload)
-├── service/                    # Lógica de negócio (RAG + Indexação)
-├── model/                      # DTOs
-└── RagPocApplication.java      # Entry point
+├── config/
+│   ├── BedrockConfig.java          # Bedrock (Nova Lite + Cohere)
+│   ├── S3Config.java               # S3 Client
+│   └── VectorStoreConfig.java      # PostgreSQL + pgvector
+├── controller/
+│   ├── ChatController.java         # Endpoint /api/chat
+│   └── DocumentController.java     # Endpoint /api/documentos/upload
+├── service/
+│   └── RagService.java             # RAG + Indexação
+├── model/
+│   └── ChatRequest.java            # DTO
+└── RagPocApplication.java
 ```
 
 ---
@@ -177,19 +231,19 @@ src/main/java/com/home/ragpoc/
 
 | Decisão | Motivo |
 |---------|--------|
-| LangChain4j 0.36.2 | Versão estável com suporte a Bedrock |
-| Converse API customizada | LangChain4j não suportava Nova Lite nativamente |
-| Cohere para embeddings | Ativação automática, multilíngue |
-| pgvector no Docker | Simplicidade para POC, sem custos |
-| Variáveis de ambiente | Segurança (credenciais não vão para o GitHub) |
+| **S3 para armazenamento** | Persistência dos documentos originais, escalável e seguro |
+| **pgvector para busca** | Busca por similaridade diretamente no PostgreSQL |
+| **Cohere para embeddings** | Ativação automática, multilíngue e sem formulário |
+| **Nova Lite para chat** | Modelo rápido, barato e com boa qualidade |
+| **Segmentos de 1500 caracteres** | Mantém contexto completo das experiências |
 
 ---
 
 ## 🔮 Melhorias Futuras
 
 - [ ] Interface web (Thymeleaf ou React)
-- [ ] Suporte a múltiplos documentos
-- [ ] Cache de embeddings
+- [ ] Listar documentos no S3 (`GET /api/documentos`)
+- [ ] Deletar documentos (`DELETE /api/documentos/{s3Key}`)
 - [ ] Deploy na AWS (ECS ou Lambda)
 - [ ] Testes de integração com Testcontainers
 - [ ] CI/CD com GitHub Actions
@@ -211,4 +265,4 @@ MIT
 
 ---
 
-> 💡 *Este projeto foi construído para demonstrar habilidades em Java, Spring Boot, AWS Bedrock e RAG.*
+> 💡 *Este projeto foi construído para demonstrar habilidades em Java, Spring Boot, AWS Bedrock, S3 e RAG.*s
