@@ -6,7 +6,6 @@ import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.output.Response;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.*;
-
 import java.util.List;
 
 public class BedrockConverseChatModel implements ChatLanguageModel {
@@ -39,4 +38,6 @@ public class BedrockConverseChatModel implements ChatLanguageModel {
 
         return Response.from(AiMessage.from(responseText));
     }
+
+
 }

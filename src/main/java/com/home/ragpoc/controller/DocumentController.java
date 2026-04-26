@@ -2,8 +2,8 @@ package com.home.ragpoc.controller;
 
 import com.home.ragpoc.service.RagService;
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,11 +18,21 @@ import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/documentos")
-@RequiredArgsConstructor
 public class DocumentController {
 
     private final RagService ragService;
     private final S3Client s3Client;
+    private final DocumentParser documentParser;
+
+    public DocumentController(RagService ragService, S3Client s3Client) {
+        this(ragService, s3Client, new ApachePdfBoxDocumentParser());
+    }
+
+    public DocumentController(RagService ragService, S3Client s3Client, DocumentParser documentParser) {
+        this.ragService = ragService;
+        this.s3Client = s3Client;
+        this.documentParser = documentParser;
+    }
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
@@ -52,8 +62,7 @@ public class DocumentController {
             byte[] fileBytes = s3Client.getObject(getRequest).readAllBytes();
 
             // 3. Parse do PDF e indexação
-            Document document = new ApachePdfBoxDocumentParser()
-                    .parse(new ByteArrayInputStream(fileBytes));
+            Document document = documentParser.parse(new ByteArrayInputStream(fileBytes));
 
             document.metadata().put("fileName", fileName);
             document.metadata().put("s3Key", s3Key);
