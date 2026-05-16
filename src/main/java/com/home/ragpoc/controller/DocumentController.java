@@ -4,6 +4,7 @@ import com.home.ragpoc.service.RagService;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ public class DocumentController {
     private final S3Client s3Client;
     private final DocumentParser documentParser;
 
+    @Autowired
     public DocumentController(RagService ragService, S3Client s3Client) {
         this(ragService, s3Client, new ApachePdfBoxDocumentParser());
     }

@@ -19,7 +19,7 @@
     <description>Prova de conceito de RAG (Retrieval-Augmented Generation) com Java, Spring Boot e AWS Bedrock</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
         <langchain4j.version>0.36.2</langchain4j.version>
         <aws.sdk.version>2.29.0</aws.sdk.version>
     </properties>
