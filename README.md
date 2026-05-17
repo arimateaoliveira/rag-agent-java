@@ -17,38 +17,22 @@ A aplicação **não alucina**: se a informação não estiver no documento, res
 
 ---
 
-## 🏗️ Arquitetura
+## 🏗️ Arquitetura de Componentes
+
+![Arquitetura RAG - Spring Boot + AWS Bedrock + S3 + PostgreSQL](docs/arquitetura-rag.png)
+
+### 🔄 Fluxo da Pergunta (RAG)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENTE (Postman/Web)                   │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Spring Boot Application                      │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
-│  │   Upload    │ →  │  Salvar no  │ →  │  Baixar do S3 e     │  │
-│  │   (PDF)     │    │  S3 (bucket)│    │  indexar (embedding)│  │
-│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-         │                   │                         │
-         ▼                   ▼                         ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐
-│   PostgreSQL    │  │   AWS S3        │  │    AWS Bedrock      │
-│   + pgvector    │  │   (Documentos)  │  │    (Nova Lite +     │
-│   (Vetores)     │  │                 │  │     Cohere)         │
-└─────────────────┘  └─────────────────┘  └─────────────────────┘
+Pergunta  →  Embedding (Cohere)  →  Busca Vetorial (pgvector, top-5)
+                                          ↓
+                                    Monta prompt com contexto
+                                          ↓
+                                    Nova Lite gera resposta
+                                          ↓
+                                    Resposta baseada APENAS no documento
+                                    (sem alucinações)
 ```
-
-### Fluxo da pergunta (RAG)
-
-1. Usuário pergunta algo (`POST /api/chat`)
-2. A pergunta é convertida em **embedding** (Cohere)
-3. Busca no pgvector os **trechos mais similares**
-4. Se encontrar, monta um prompt com contexto
-5. LLM (Nova Lite) gera resposta **baseada apenas no documento**
-6. Se não encontrar, responde: *"Não encontrei essa informação no currículo"*
 
 ---
 
