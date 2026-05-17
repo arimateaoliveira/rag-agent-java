@@ -6,7 +6,7 @@ spring:
     prefix: classpath:/templates/
     suffix: .html
   datasource:
-    url: jdbc:postgresql://localhost:5432/ragpoc
+    url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   servlet:
@@ -17,20 +17,24 @@ spring:
 server:
   port: 8080
 
-# Configuracao AWS (substitua com suas credenciais)
+# Configuracao AWS
 aws:
-  region: us-east-1
+  region: us-east-1  # Mantém o Bedrock funcionando
+  s3:
+    bucket: rag-poc-documentos-936672259676-us-east-2-an
+    region: us-east-2  # Região específica para S3
   bedrock:
     model-id: amazon.nova-lite-v1:0
-    # embedding-model-id será configurado depois
+    embedding-model-id: cohere.embed-english-v3
+
 
 # Vector Store (PostgreSQL + pgvector)
 pgvector:
-  host: localhost
-  port: 5432
-  database: rag_db
-  user: postgres
-  password: postgres
+  host: ${PGVECTOR_HOST:localhost}
+  port: ${PGVECTOR_PORT:5432}
+  database: ${PGVECTOR_DATABASE:rag_db}
+  user: ${PGVECTOR_USER:postgres}
+  password: ${PGVECTOR_PASSWORD}
 
 # Logging
 logging:

@@ -70,7 +70,7 @@ public class RagService {
         log.info("Indexando documento: {}", document.metadata().getString("fileName"));
 
         // Divide em segmentos de 500 caracteres com 100 de sobreposição
-        var splitter = DocumentSplitters.recursive(500, 100);
+        var splitter = DocumentSplitters.recursive(1500, 200);
         List<TextSegment> segments = splitter.split(document);
 
         // Gera embeddings para todos os segmentos
